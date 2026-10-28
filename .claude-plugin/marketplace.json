@@ -1,0 +1,5 @@
+{
+  "name": "rainbow-text",
+  "owner": { "name": "SeanKogan" },
+  "plugins": [{ "name": "reply-colors", "source": "./" }]
+}
