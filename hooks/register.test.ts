@@ -72,11 +72,57 @@ test('colors a command output row, like a /btw answer', async $ => {
   expect(s.includes('{{')).toBe(false)
 })
 
-test('answers /btw through a fork of the session', async ($, on) => {
+const tick = () => new Promise(r => setTimeout(r, 10))
+
+const PANE = {
+  plugin: 'reply-colors',
+  component: 'Pane',
+  requestId: 'btw',
+  props: { title: '/btw', isFocused: true, bodyColumns: 60, placement: 'inline', scroll: { offset: 0, bodyRows: 10 }, view: {} },
+} as const
+
+test('answers /btw in a colored pane, outside the transcript', async ($, on) => {
   let asked = ''
+  on('ui.open', () => ({ value: { isPlaced: true } }) as any)
+  on('clock.after', () => ({ value: undefined }) as any)
+  on('session.turns', () => ({ value: 0 }) as any)
   on('model.fork', ($, e: any) => { asked = e.prompt; return { value: { isAnswered: true, text: 'It is {{g:done}}.', usage: {} } } as any })
   const r: any = await $.command.run({ command: 'btw', args: 'is it done?' })
+  expect(r.text).toBe(undefined)
+  for (let i = 0; i < 50 && !asked; i++) await tick()
+  await tick()
   expect(asked.endsWith('is it done?')).toBe(true)
   expect(asked.includes('side question')).toBe(true)
-  expect(r.text).toBe('It is {{g:done}}.')
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' } as any)
+  expect((await ui.find({ type: 'Text', text: /^done$/ }))?.text).toBe('done')
+  expect(JSON.stringify(await ui.find({ type: 'Text', text: /^done$/ })).includes('#22c55e')).toBe(true)
+  await ui.unmount()
+})
+
+test('a /btw before the first turn asks the model without a fork', async ($, on) => {
+  let completed = ''
+  on('ui.open', () => ({ value: { isPlaced: true } }) as any)
+  on('clock.after', () => ({ value: undefined }) as any)
+  on('session.turns', () => ({ value: 0 }) as any)
+  on('model.fork', () => ({ value: { isAnswered: false, reason: 'nothing-to-fork', usage: {} } }) as any)
+  on('session.model', () => ({ value: 'claude-haiku-5-5' }) as any)
+  on('model.complete', ($, e: any) => { completed = e.model; return { value: { isAnswered: true, text: '{{y:4}}', usage: {} } } as any })
+  await $.command.run({ command: 'btw', args: '2+2?' })
+  for (let i = 0; i < 50 && !completed; i++) await tick()
+  expect(completed).toBe('claude-haiku-5-5')
+})
+
+test('an empty /btw is left to the engine', async ($, on) => {
+  let reached = false
+  on('command.run', () => { reached = true; return { text: 'usage' } })
+  await $.command.run({ command: 'btw', args: '' })
+  expect(reached).toBe(true)
+})
+
+test('a resumed session before its first turn hands /btw to the engine', async ($, on) => {
+  let reached = false
+  on('session.turns', () => ({ value: 3 }) as any)
+  on('command.run', () => { reached = true; return { text: 'engine' } })
+  await $.command.run({ command: 'btw', args: 'what did we say?' })
+  expect(reached).toBe(true)
 })

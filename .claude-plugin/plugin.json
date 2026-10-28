@@ -2,6 +2,9 @@
   "name": "reply-colors",
   "version": "0.1.2",
   "description": "Colors Claude's replies in Claude Code: blue clickable links, yellow and orange highlights, red warnings, green summaries.",
-  "author": { "name": "SeanKogan" },
-  "license": "MIT"
+  "author": {
+    "name": "SeanKogan"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
 }
