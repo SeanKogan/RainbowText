@@ -59,3 +59,24 @@ test('keeps a code fence right after a line whole', async $ => {
   expect(md.props.text.startsWith('```')).toBe(true)
   expect(JSON.stringify(el).includes('#facc15')).toBe(true)
 })
+
+test('colors a command output row, like a /btw answer', async $ => {
+  const el: any = await $.ui.render({
+    surface: 'terminal',
+    component: 'CommandOutput',
+    requestId: 'c1',
+    props: { command: 'btw', args: 'q', text: 'Click {{y:Share}} at https://x.com', isErrored: false },
+  } as any)
+  const s = JSON.stringify(el)
+  expect(s.includes('#facc15')).toBe(true)
+  expect(s.includes('{{')).toBe(false)
+})
+
+test('answers /btw through a fork of the session', async ($, on) => {
+  let asked = ''
+  on('model.fork', ($, e: any) => { asked = e.prompt; return { value: { isAnswered: true, text: 'It is {{g:done}}.', usage: {} } } as any })
+  const r: any = await $.command.run({ command: 'btw', args: 'is it done?' })
+  expect(asked.endsWith('is it done?')).toBe(true)
+  expect(asked.includes('side question')).toBe(true)
+  expect(r.text).toBe('It is {{g:done}}.')
+})
