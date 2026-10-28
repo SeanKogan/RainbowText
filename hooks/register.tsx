@@ -22,23 +22,33 @@ Write links as bare https:// URLs; they are drawn blue and clickable. Never put 
 
 const isFancy = (s: string) => /\{\{[yorg]:|https?:\/\//.test(s)
 
-// Paragraphs split on blank lines, code fences kept whole.
+// Paragraphs split on blank lines; each code fence is a block of its own.
 function blocks(text: string): string[] {
   const out: string[] = []
   let cur: string[] = []
   let inFence = false
+  const flush = () => {
+    if (cur.length) out.push(cur.join('\n'))
+    cur = []
+  }
   for (const line of text.split('\n')) {
-    if (line.trimStart().startsWith('```')) inFence = !inFence
-    if (!inFence && line.trim() === '' && cur.length) {
-      out.push(cur.join('\n'))
-      cur = []
-    } else if (inFence || line.trim() !== '') {
-      cur.push(line)
+    const isFence = line.trimStart().startsWith('```')
+    if (isFence && !inFence) flush()
+    if (inFence || isFence || line.trim() !== '') cur.push(line)
+    else flush()
+    if (isFence) {
+      inFence = !inFence
+      if (!inFence) flush()
     }
   }
-  if (cur.length) out.push(cur.join('\n'))
+  flush()
   return out
 }
+
+const isTable = (b: string) => b.split('\n').every(l => l.trimStart().startsWith('|'))
+
+// Tags can't be colored inside a table the engine draws, so they fall back to bold.
+const untag = (b: string) => b.replace(/\{\{[yorg]:([\s\S]*?)\}\}/g, '**$1**')
 
 export const register: Register = on => {
   on('prompt.compose', async ($, e, next) => {
@@ -92,6 +102,8 @@ export const register: Register = on => {
       if (i > 0) rows.push(<Text key={`gap${k++}`}> </Text>)
       if (!isFancy(b) || b.trimStart().startsWith('```')) {
         rows.push(<Markdown key={`m${k++}`} text={b} />)
+      } else if (isTable(b)) {
+        rows.push(<Markdown key={`m${k++}`} text={untag(b)} />)
       } else {
         for (const l of b.split('\n')) rows.push(line(l))
       }

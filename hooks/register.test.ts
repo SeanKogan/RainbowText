@@ -43,3 +43,19 @@ test('tells Claude about the tags', async ($, on) => {
   const { sections } = await $.prompt.compose({ model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] })
   expect(sections.some(x => x.id === 'reply-colors:guide' && x.text.includes('{{y:'))).toBe(true)
 })
+
+const render = ($: any, text: string) =>
+  $.ui.render({ surface: 'terminal', component: 'AssistantMessage', requestId: 'm', props: { text, isFirstOfReply: true } } as any)
+
+test('keeps a table with a link or tag as a table', async $ => {
+  const el: any = await render($, '| Col | Link |\n| --- | --- |\n| {{y:a}} | https://x.com |')
+  expect(el.children[0].type).toBe('Markdown')
+  expect(el.children[0].props.text.includes('**a**')).toBe(true)
+})
+
+test('keeps a code fence right after a line whole', async $ => {
+  const el: any = await render($, 'Run {{y:this}}:\n```\nnpm test https://z.com\n```')
+  const md = el.children.find((c: any) => c.type === 'Markdown')
+  expect(md.props.text.startsWith('```')).toBe(true)
+  expect(JSON.stringify(el).includes('#facc15')).toBe(true)
+})
